@@ -1,0 +1,96 @@
+# =============================================================================
+# Docker Compose for Cirtesu robotics workspace
+# =============================================================================
+# Profiles:
+#   docker compose --profile da3 up -d          # DA3 only
+#   docker compose --profile base up -d         # Base dev only
+#   docker compose --profile da3 exec da3 bash  # Enter DA3 container
+#
+# All services:
+#   - Run as your host user (UID/GID match → no permission issues)
+#   - Full GPU passthrough + NVIDIA OpenGL
+#   - Host network for ROS2 DDS discovery
+#   - X11 display forwarding for GUIs (rviz2, rqt, etc.)
+#   - Device access for cameras and hardware
+# =============================================================================
+
+x-common-env: &common-env
+  DISPLAY: ${DISPLAY}
+  XAUTHORITY: /tmp/.Xauthority
+  __GLX_VENDOR_LIBRARY_NAME: nvidia
+  __NV_PRIME_RENDER_OFFLOAD: 1
+  HF_HOME: /home/diego/.cache/huggingface
+
+x-common-volumes: &common-volumes
+  - ${CIRTESU_PATH:-/home/diego/Documents/02-Universidad/Cirtesu}:/home/diego/Cirtesu
+  - /tmp/.X11-unix:/tmp/.X11-unix:rw
+  - ${HOME}/.Xauthority:/tmp/.Xauthority:ro
+  - /dev:/dev
+  - ${HOME}/.codex:/home/diego/.codex
+  - ${HOME}/.ssh:/home/diego/.ssh:ro
+  - ${HOME}/.gitconfig:/home/diego/.gitconfig:ro
+  - ${HOME}/.cache/huggingface:/home/diego/.cache/huggingface
+
+x-common-deploy: &common-deploy
+  resources:
+    reservations:
+      devices:
+        - driver: nvidia
+          count: all
+          capabilities: [gpu, compute, utility, graphics, display]
+
+# ===========
+
+x-common-service: &common-service
+  environment: *common-env
+  volumes: *common-volumes
+  network_mode: host
+  ipc: host
+  privileged: true
+  deploy: *common-deploy
+  stdin_open: true
+  tty: true
+  working_dir: /home/diego/Cirtesu
+  command: bash
+
+# =============================================================================
+# Services
+# =============================================================================
+services:
+
+  # ── Base ROS2 development ──────────────────────────────────────────────────
+  ros2-dev:
+    image: diegomarza/ros2-dev-base:latest
+    container_name: ros2-dev
+    profiles: ["base"]
+    <<: *common-service
+
+  # ── Depth Anything 3 ──────────────────────────────────────────────────────
+  da3:
+    image: diegomarza/da3:latest
+    container_name: da3
+    profiles: ["da3"]
+    <<: *common-service
+
+  # ── DA3 + ROS2 wrapper (validated derived image) ─────────────────────────
+  da3-ros2-wrapper:
+    image: diegomarza/da3-ros2-wrapper:latest
+    container_name: da3-ros2-wrapper
+    profiles: ["da3-ros2-wrapper"]
+    <<: *common-service
+
+  # ── Stonefish simulation (placeholder for future) ──────────────────────────
+  # stonefish:
+  #   image: diegomarza/stonefish:latest
+  #   container_name: stonefish
+  #   profiles: ["stonefish", "da3-stonefish"]
+  #   environment: *common-env
+  #   volumes: *common-volumes
+  #   network_mode: host
+  #   ipc: host
+  #   privileged: true
+  #   deploy: *common-deploy
+  #   stdin_open: true
+  #   tty: true
+  #   working_dir: /home/diego/Cirtesu
+  #   command: bash
