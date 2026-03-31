@@ -4,6 +4,7 @@
 # Profiles:
 #   docker compose --profile da3 up -d          # DA3 only
 #   docker compose --profile base up -d         # Base dev only
+#   docker compose --profile stonefish up -d    # Stonefish only
 #   docker compose --profile da3 exec da3 bash  # Enter DA3 container
 #
 # All services:
@@ -79,18 +80,9 @@ services:
     profiles: ["da3-ros2-wrapper"]
     <<: *common-service
 
-  # ── Stonefish simulation (placeholder for future) ──────────────────────────
-  # stonefish:
-  #   image: diegomarza/stonefish:latest
-  #   container_name: stonefish
-  #   profiles: ["stonefish", "da3-stonefish"]
-  #   environment: *common-env
-  #   volumes: *common-volumes
-  #   network_mode: host
-  #   ipc: host
-  #   privileged: true
-  #   deploy: *common-deploy
-  #   stdin_open: true
-  #   tty: true
-  #   working_dir: /home/diego/Cirtesu
-  #   command: bash
+  # ── Stonefish simulation ───────────────────────────────────────────────────
+  stonefish:
+    image: diegomarza/stonefish:latest
+    container_name: stonefish
+    profiles: ["stonefish"]
+    <<: *common-service

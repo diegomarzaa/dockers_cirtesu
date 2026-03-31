@@ -9,7 +9,7 @@ osrf/ros:humble-desktop-full
   └── diegomarza/ros2-dev-base    ← dev tools, uv, sudo, colcon, gedit...
         └── diegomarza/da3        ← torch + DA3 deps en venv /opt/venvs/da3
               └── diegomarza/da3-ros2-wrapper ← overlay colcon del wrapper ROS 2 desde fork remoto
-        └── diegomarza/stonefish  ← (futuro)
+        └── diegomarza/stonefish  ← deps/toolchain para compilar Stonefish + ROS 2 en stonefish_ws
         └── diegomarza/zed        ← (futuro)
 ```
 
@@ -25,9 +25,12 @@ docker build -f docker/da3/Dockerfile -t diegomarza/da3:latest .
 
 # 3) Wrapper ROS 2
 docker build -f docker/da3-ros2-wrapper/Dockerfile -t diegomarza/da3-ros2-wrapper:latest .
+
+# 4) Stonefish
+docker build -f docker/stonefish/Dockerfile -t diegomarza/stonefish:latest .
 ```
 
-El wrapper ROS 2 se clona durante el build desde el fork remoto configurado en [docker/da3-ros2-wrapper/Dockerfile](/home/diego/Documents/02-Universidad/Cirtesu/docker/da3-ros2-wrapper/Dockerfile). La imagen final conserva solo el overlay instalado en `~/ros2_wrapper_ws/install`, no el repo fuente.
+El wrapper ROS 2 se clona durante el build desde el fork remoto configurado en [docker/da3-ros2-wrapper/Dockerfile](./da3-ros2-wrapper/Dockerfile). La imagen final conserva solo el overlay instalado en `~/ros2_wrapper_ws/install`, no el repo fuente.
 
 ## Compose
 
@@ -37,7 +40,7 @@ El wrapper ROS 2 se clona durante el build desde el fork remoto configurado en [
 - `x-common-volumes`: workspace, `Xauthority`, `/dev`, `.codex`, `.ssh`, `.gitconfig` y caché de Hugging Face.
 - `x-common-service`: red `host`, IPC `host`, `privileged`, GPU, `tty`, `stdin_open`, `working_dir` y `command: bash`.
 
-> Perfiles disponibles: `base`, `da3` y `da3-ros2-wrapper`.
+> Perfiles disponibles: `base`, `da3`, `da3-ros2-wrapper` y `stonefish`.
 
 Si no activas un perfil, no arranca ningún servicio.
 
@@ -50,6 +53,10 @@ docker compose -f docker/docker-compose.yml --profile da3-ros2-wrapper down
 ## Docs
 
 - [21_docker_compact_state.md](/home/diego/Documents/02-Universidad/Cirtesu/agentdocs/workflows/21_docker_compact_state.md)
+
+Stonefish:
+- [2026-03-30_docker_stonefish.md](/home/diego/Documents/02-Universidad/Cirtesu/agentdocs/stonefish/2026-03-30_docker_stonefish.md)
+- [stonefish/README.md](./stonefish/README.md)
 
 ## DockerHub
 
