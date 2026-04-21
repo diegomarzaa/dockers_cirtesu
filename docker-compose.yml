@@ -3,6 +3,7 @@
 # =============================================================================
 # Profiles:
 #   docker compose --profile ros2-dev-profile up -d  # ROS2 dev only
+#   docker compose --profile ros2-da3-dev-profile up -d  # ROS2 + DA3 dev
 #   docker compose build ros2-dev                    # Build ROS2 dev directly
 #   docker compose run --rm ros2-dev bash            # Enter ROS2 dev container
 #
@@ -69,19 +70,18 @@ services:
     profiles: ["ros2-dev-profile"]
     <<: *common-service
 
-  # ── Depth Anything 3 (disabled for now) ───────────────────────────────────
-  # da3:
-  #   image: diegomarza/da3:latest
-  #   build:
-  #     context: .
-  #     dockerfile: da3/Dockerfile
-  #     additional_contexts:
-  #       depth_anything_3: ${DEPTH_ANYTHING_3_CONTEXT}
-  #     args:
-  #       USERNAME: ${CONTAINER_USER}
-  #   container_name: da3
-  #   profiles: ["da3"]
-  #   <<: *common-service
+  # ── ROS2 + Depth Anything 3 development ────────────────────────────────────
+  ros2-da3-dev:
+    image: diegomarza/ros2-da3-dev:latest
+    build:
+      context: ./ros2-da3-dev
+      dockerfile: Dockerfile
+      additional_contexts:
+        depth_anything_3: ${DEPTH_ANYTHING_3_CONTEXT}
+      args: *common-build-args
+    container_name: ros2-da3-dev
+    profiles: ["ros2-da3-dev-profile"]
+    <<: *common-service
 
   # ── DA3 + ROS2 wrapper (disabled for now) ─────────────────────────────────
   # da3-ros2-wrapper:
