@@ -83,20 +83,6 @@ services:
     profiles: ["ros2-da3-dev-profile"]
     <<: *common-service
 
-  # ── DA3 + ROS2 wrapper (disabled for now) ─────────────────────────────────
-  # da3-ros2-wrapper:
-  #   image: diegomarza/da3-ros2-wrapper:latest
-  #   build:
-  #     context: .
-  #     dockerfile: da3-ros2-wrapper/Dockerfile
-  #     args:
-  #       USERNAME: ${CONTAINER_USER}
-  #       WRAPPER_REPO_URL: ${WRAPPER_REPO_URL}
-  #       WRAPPER_REPO_REF: ${WRAPPER_REPO_REF}
-  #   container_name: da3-ros2-wrapper
-  #   profiles: ["da3-ros2-wrapper"]
-  #   <<: *common-service
-
   # ── Stonefish simulation (disabled for now) ────────────────────────────────
   # stonefish:
   #   image: diegomarza/stonefish:latest

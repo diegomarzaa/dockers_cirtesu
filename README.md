@@ -5,8 +5,7 @@ Imágenes Docker modulares basadas en `osrf/ros:humble-desktop-full`. Cada image
 ```
 osrf/ros:humble-desktop-full
   └── diegomarza/ros2-dev-base    ← dev tools, uv, sudo, colcon, gedit...
-        └── diegomarza/da3        ← (pendiente revisar) torch + DA3 deps en venv /opt/venvs/da3
-              └── diegomarza/da3-ros2-wrapper ← (pendiente revisar) overlay colcon del wrapper ROS 2 desde fork remoto
+        └── diegomarza/ros2-da3-dev ← ROS2 + DA3 + DA3-Streaming en el Python del sistema
         └── diegomarza/stonefish  ← (pendiente revisar) deps/toolchain para compilar Stonefish + ROS 2 en stonefish_ws
         └── diegomarza/zed        ← (futuro)
 ```
@@ -32,7 +31,7 @@ nvidia-smi
 docker run --rm --gpus all nvidia/cuda:12.4.1-base-ubuntu20.04 nvidia-smi  # O la versión que sea
 ```
 
-## Quick Setup: ros2-dev
+## Quick Setup
 
 Desde la raíz de este repo:
 
@@ -78,6 +77,16 @@ ros2 --help >/dev/null && echo ros2_ok
 nvidia-smi
 ```
 
+Para trabajar con DA3 y ROS2 en el mismo contenedor:
+
+```bash
+docker compose --profile ros2-da3-dev-profile config
+docker compose build ros2-da3-dev
+docker compose --profile ros2-da3-dev-profile up -d
+docker exec -it ros2-da3-dev bash
+docker compose --profile ros2-da3-dev-profile down
+```
+
 ## Build
 
 ```bash
@@ -88,17 +97,12 @@ docker build -f docker/ros2-dev-base/Dockerfile -t diegomarza/ros2-dev-base:late
   --build-arg USER_GID=$(id -g) \
   docker/ros2-dev-base
 
-# 2) DA3
-docker build -f docker/da3/Dockerfile -t diegomarza/da3:latest .
+# 2) ROS2 + DA3
+docker compose build ros2-da3-dev
 
-# 3) Wrapper ROS 2
-docker build -f docker/da3-ros2-wrapper/Dockerfile -t diegomarza/da3-ros2-wrapper:latest .
-
-# 4) Stonefish
+# 3) Stonefish
 docker build -f docker/stonefish/Dockerfile -t diegomarza/stonefish:latest .
 ```
-
-El wrapper ROS 2 se clona durante el build desde el fork remoto configurado en [docker/da3-ros2-wrapper/Dockerfile](./da3-ros2-wrapper/Dockerfile). La imagen final conserva solo el overlay instalado en `~/ros2_wrapper_ws/install`, no el repo fuente.
 
 ## Compose
 
@@ -108,7 +112,10 @@ El wrapper ROS 2 se clona durante el build desde el fork remoto configurado en [
 - `x-common-volumes`: montaje principal, `Xauthority` y `/dev`.
 - `x-common-service`: red `host`, IPC `host`, `privileged`, GPU, `tty`, `stdin_open`, `working_dir` y `command: bash`.
 
-> Perfil activo por ahora: `ros2-dev-profile`.
+Perfiles principales:
+
+- `ros2-dev-profile`: ROS2 base de desarrollo.
+- `ros2-da3-dev-profile`: ROS2 + DA3 + DA3-Streaming.
 
 Si no activas un perfil, no arranca ningún servicio.
 
@@ -132,21 +139,21 @@ docker login
 
 ```bash
 docker push diegomarza/ros2-dev-base:latest
+docker push diegomarza/ros2-da3-dev:latest
 ```
 
 ```bash
 docker pull diegomarza/ros2-dev-base:latest
+docker pull diegomarza/ros2-da3-dev:latest
 ```
 
 ## Permisos
 
-El usuario dentro del container es `diego` con UID/GID 1000 (el default de Ubuntu). Si tu UID es distinto, pasa `--build-arg USER_UID=$(id -u) --build-arg USER_GID=$(id -g)` al build. `sudo` está disponible sin contraseña.
+El usuario dentro del contenedor se configura con `CONTAINER_USER`, `CONTAINER_UID` y `CONTAINER_GID` en `.env`. `sudo` está disponible sin contraseña.
 
 ## Python en DA3
 
-DA3 usa un venv en `/opt/venvs/da3` gestionado con `uv` y ya queda horneado en la imagen `diegomarza/da3:latest`. El `PATH` del contenedor deja `da3` y `python` apuntando a `/opt/venvs/da3/bin`.
-
-Esto ya está verificado en runtime sobre el servicio `da3` recreado con Compose: `da3 --help`, `import rclpy`, carga de `DA3-SMALL` en GPU e inferencia simple. No se instala nada en el Python del sistema.
+`ros2-da3-dev` instala DA3, PyTorch y las dependencias de DA3-Streaming en el mismo Python del sistema que usa ROS2. No usa venv, para evitar conflictos de import entre `rclpy` y el wrapper ROS propio.
 
 La copia usada por el editable install vive en `/opt/depth-anything-3`. Esto
 evita que el bind mount del workspace tape el paquete cuando una máquina usa
