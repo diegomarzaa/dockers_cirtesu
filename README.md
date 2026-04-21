@@ -91,17 +91,17 @@ docker compose --profile ros2-da3-dev-profile down
 
 ```bash
 # 1) Base
-docker build -f docker/ros2-dev-base/Dockerfile -t diegomarza/ros2-dev-base:latest \
+docker build -f ros2-dev-base/Dockerfile -t diegomarza/ros2-dev-base:latest \
   --build-arg USERNAME=$(id -un) \
   --build-arg USER_UID=$(id -u) \
   --build-arg USER_GID=$(id -g) \
-  docker/ros2-dev-base
+  ros2-dev-base
 
 # 2) ROS2 + DA3
 docker compose build ros2-da3-dev
 
 # 3) Stonefish
-docker build -f docker/stonefish/Dockerfile -t diegomarza/stonefish:latest .
+docker build -f stonefish/Dockerfile -t diegomarza/stonefish:latest .
 ```
 
 ## Compose
