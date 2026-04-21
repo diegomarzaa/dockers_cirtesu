@@ -4,9 +4,9 @@
 # The most complete official ROS 2 image (desktop-full) plus all dev tools
 # needed for building packages, debugging, and general robotics work.
 #
-# Runs as a non-root user (default: "dev", UID/GID 1000) with passwordless sudo.
-# UID/GID are configurable at build time to match your host user, so mounted
-# volumes have correct permissions without chown gymnastics.
+# Runs as a non-root user with passwordless sudo. USERNAME, USER_UID and
+# USER_GID must be passed as build args, normally from docker-compose.yml and
+# the machine-local .env file.
 #
 # Used as the shared base for all project-specific images (DA3, Stonefish, etc.)
 # so they share Docker layers and save disk space.
@@ -14,9 +14,11 @@
 # Build:
 #   docker build -t diegomarza/ros2-dev-base:latest .
 #
-#   # Match your host user's UID/GID (recommended):
+#   # Pass the user configured for this machine:
 #   docker build -t diegomarza/ros2-dev-base:latest \
-#     --build-arg USER_UID=$(id -u) --build-arg USER_GID=$(id -g) .
+#     --build-arg USERNAME=usuario \
+#     --build-arg USER_UID=$(id -u) \
+#     --build-arg USER_GID=$(id -g) .
 #
 # =============================================================================
 
@@ -85,17 +87,21 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
 RUN rosdep init 2>/dev/null || true && rosdep update
 
 # ── Create non-root user ────────────────────────────────────────────────────
-# UID/GID default to 1000 (typical first user on Ubuntu). Override at build
-# time with --build-arg USER_UID=$(id -u) --build-arg USER_GID=$(id -g)
-# to match your host user and avoid permission issues with mounted volumes.
-ARG USERNAME=diego
-ARG USER_UID=1000
-ARG USER_GID=1000
+# Compose should pass the arguments, from .env file
+ARG USERNAME
+ARG USER_UID
+ARG USER_GID
 
-RUN groupadd --gid ${USER_GID} ${USERNAME} 2>/dev/null || true && \
-    useradd --uid ${USER_UID} --gid ${USER_GID} -m -s /bin/bash ${USERNAME} && \
-    echo "${USERNAME} ALL=(ALL) NOPASSWD:ALL" > /etc/sudoers.d/${USERNAME} && \
-    chmod 0440 /etc/sudoers.d/${USERNAME}
+RUN set -eux; \
+    : "${USERNAME:?Build arg USERNAME is required}"; \
+    : "${USER_UID:?Build arg USER_UID is required}"; \
+    : "${USER_GID:?Build arg USER_GID is required}"; \
+    if ! getent group "${USER_GID}" >/dev/null; then \
+        groupadd --gid "${USER_GID}" "${USERNAME}"; \
+    fi; \
+    useradd --uid "${USER_UID}" --gid "${USER_GID}" -m -s /bin/bash "${USERNAME}"; \
+    echo "${USERNAME} ALL=(ALL) NOPASSWD:ALL" > "/etc/sudoers.d/${USERNAME}"; \
+    chmod 0440 "/etc/sudoers.d/${USERNAME}"
 
 # ── uv: Python package manager ─────────────────────────────────────────
 # Install as root to /usr/local/bin so it's available to all users.

@@ -1,11 +1,11 @@
 # =============================================================================
-# Docker Compose for Cirtesu robotics workspace
+# Docker Compose for Cirtesu Docker workspaces
 # =============================================================================
 # Profiles:
-#   docker compose --profile da3 up -d          # DA3 only
-#   docker compose --profile base up -d         # Base dev only
-#   docker compose --profile stonefish up -d    # Stonefish only
-#   docker compose --profile da3 exec da3 bash  # Enter DA3 container
+#   docker compose --profile ros2-dev-profile up -d  # ROS2 dev only
+#   docker compose --profile ros2-da3-dev-profile up -d  # ROS2 + DA3 dev
+#   docker compose build ros2-dev                    # Build ROS2 dev directly
+#   docker compose run --rm ros2-dev bash            # Enter ROS2 dev container
 #
 # All services:
 #   - Run as your host user (UID/GID match → no permission issues)
@@ -15,43 +15,43 @@
 #   - Device access for cameras and hardware
 # =============================================================================
 
+# ENVIRONMENT VARIABLES
 x-common-env: &common-env
   DISPLAY: ${DISPLAY}
   XAUTHORITY: /tmp/.Xauthority
   __GLX_VENDOR_LIBRARY_NAME: nvidia
   __NV_PRIME_RENDER_OFFLOAD: 1
-  HF_HOME: /home/diego/.cache/huggingface
 
+# VOLUMES (SHARED DIRECTORIES)
 x-common-volumes: &common-volumes
-  - ${CIRTESU_PATH:-/home/diego/Documents/02-Universidad/Cirtesu}:/home/diego/Cirtesu
+  - ${MAIN_MOUNT_VOLUME}:${CONTAINER_WORKSPACE}
   - /tmp/.X11-unix:/tmp/.X11-unix:rw
   - ${HOME}/.Xauthority:/tmp/.Xauthority:ro
   - /dev:/dev
-  - ${HOME}/.codex:/home/diego/.codex
-  - ${HOME}/.ssh:/home/diego/.ssh:ro
-  - ${HOME}/.gitconfig:/home/diego/.gitconfig:ro
-  - ${HOME}/.cache/huggingface:/home/diego/.cache/huggingface
 
-x-common-deploy: &common-deploy
-  resources:
-    reservations:
-      devices:
-        - driver: nvidia
-          count: all
-          capabilities: [gpu, compute, utility, graphics, display]
+# BUILD ARGS (USED IN DOCKERFILE)
+x-common-build-args: &common-build-args
+  USERNAME: ${CONTAINER_USER}
+  USER_UID: ${CONTAINER_UID}
+  USER_GID: ${CONTAINER_GID}
 
-# ===========
-
+# DEPLOY CONFIG
 x-common-service: &common-service
   environment: *common-env
   volumes: *common-volumes
   network_mode: host
   ipc: host
   privileged: true
-  deploy: *common-deploy
+  deploy:
+    resources:
+      reservations:
+        devices:
+          - driver: nvidia
+            count: all
+            capabilities: [gpu, compute, utility, graphics, display]
   stdin_open: true
   tty: true
-  working_dir: /home/diego/Cirtesu
+  working_dir: ${CONTAINER_WORKSPACE}
   command: bash
 
 # =============================================================================
@@ -62,27 +62,35 @@ services:
   # ── Base ROS2 development ──────────────────────────────────────────────────
   ros2-dev:
     image: diegomarza/ros2-dev-base:latest
+    build:
+      context: ./ros2-dev-base
+      dockerfile: Dockerfile
+      args: *common-build-args
     container_name: ros2-dev
-    profiles: ["base"]
+    profiles: ["ros2-dev-profile"]
     <<: *common-service
 
-  # ── Depth Anything 3 ──────────────────────────────────────────────────────
-  da3:
-    image: diegomarza/da3:latest
-    container_name: da3
-    profiles: ["da3"]
+  # ── ROS2 + Depth Anything 3 development ────────────────────────────────────
+  ros2-da3-dev:
+    image: diegomarza/ros2-da3-dev:latest
+    build:
+      context: ./ros2-da3-dev
+      dockerfile: Dockerfile
+      additional_contexts:
+        depth_anything_3: ${DEPTH_ANYTHING_3_CONTEXT}
+      args: *common-build-args
+    container_name: ros2-da3-dev
+    profiles: ["ros2-da3-dev-profile"]
     <<: *common-service
 
-  # ── DA3 + ROS2 wrapper (validated derived image) ─────────────────────────
-  da3-ros2-wrapper:
-    image: diegomarza/da3-ros2-wrapper:latest
-    container_name: da3-ros2-wrapper
-    profiles: ["da3-ros2-wrapper"]
-    <<: *common-service
-
-  # ── Stonefish simulation ───────────────────────────────────────────────────
-  stonefish:
-    image: diegomarza/stonefish:latest
-    container_name: stonefish
-    profiles: ["stonefish"]
-    <<: *common-service
+  # ── Stonefish simulation (disabled for now) ────────────────────────────────
+  # stonefish:
+  #   image: diegomarza/stonefish:latest
+  #   build:
+  #     context: .
+  #     dockerfile: stonefish/Dockerfile
+  #     args:
+  #       USERNAME: ${CONTAINER_USER}
+  #   container_name: stonefish
+  #   profiles: ["stonefish"]
+  #   <<: *common-service
