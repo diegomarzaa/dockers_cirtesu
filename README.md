@@ -13,12 +13,82 @@ osrf/ros:humble-desktop-full
         └── diegomarza/zed        ← (futuro)
 ```
 
+## Prerequisitos
+
+En la máquina donde se vayan a lanzar los contenedores:
+
+- Docker instalado y funcionando.
+- Usuario añadido al grupo `docker`.
+- Docker Compose v2 disponible (`docker compose version`).
+- NVIDIA driver instalado si se quiere usar GPU.
+- NVIDIA Container Toolkit funcionando si se quiere usar GPU desde Docker.
+- Este repo clonado en la máquina.
+- El workspace/carpeta que quieras montar existe en el host.
+
+Comprobaciones:
+
+```bash
+docker ps
+docker compose version
+nvidia-smi
+docker run --rm --gpus all nvidia/cuda:12.4.1-base-ubuntu20.04 nvidia-smi  # O la versión que sea
+```
+
+## Quick Setup: ros2-dev
+
+Desde la raíz de este repo:
+
+```bash
+cd dockers_cirtesu
+cp .env.example .env
+nano .env
+```
+
+Edita como mínimo estas variables:
+
+```env
+MAIN_MOUNT_VOLUME=/home/usuario/depth_anything_ws
+CONTAINER_WORKSPACE=/home/usuario/DockerWorkspace
+CONTAINER_USER=usuario
+```
+
+Revisa en `docker-compose.yml` la sección `x-common-volumes` y asegúrate de
+que solo monta las carpetas que necesitas en esa máquina. Por ahora incluye el
+workspace principal, X11 y `/dev`
+
+Revisa cómo queda el compose resuelto:
+
+```bash
+docker compose --profile ros2-dev-profile config
+```
+
+Construye y lanza el contenedor:
+
+```bash
+docker compose build ros2-dev
+docker compose --profile ros2-dev-profile up -d
+docker exec -it ros2-dev bash
+docker compose --profile ros2-dev-profile down
+```
+
+Comprobación rápida:
+
+```bash
+id
+pwd
+ros2 --help >/dev/null && echo ros2_ok
+nvidia-smi
+```
+
 ## Build
 
 ```bash
 # 1) Base
 docker build -f docker/ros2-dev-base/Dockerfile -t diegomarza/ros2-dev-base:latest \
-  --build-arg USER_UID=$(id -u) --build-arg USER_GID=$(id -g) docker/ros2-dev-base
+  --build-arg USERNAME=$(id -un) \
+  --build-arg USER_UID=$(id -u) \
+  --build-arg USER_GID=$(id -g) \
+  docker/ros2-dev-base
 
 # 2) DA3
 docker build -f docker/da3/Dockerfile -t diegomarza/da3:latest .
@@ -37,18 +107,12 @@ El wrapper ROS 2 se clona durante el build desde el fork remoto configurado en [
 `docker-compose.yml` orquesta contenedores construidos. Lo común se agrupa en anclas YAML:
 
 - `x-common-env`: pantalla X11 y OpenGL NVIDIA.
-- `x-common-volumes`: workspace, `Xauthority`, `/dev`, `.codex`, `.ssh`, `.gitconfig` y caché de Hugging Face.
+- `x-common-volumes`: montaje principal, `Xauthority` y `/dev`.
 - `x-common-service`: red `host`, IPC `host`, `privileged`, GPU, `tty`, `stdin_open`, `working_dir` y `command: bash`.
 
-> Perfiles disponibles: `base`, `da3`, `da3-ros2-wrapper` y `stonefish`.
+> Perfil activo por ahora: `ros2-dev-profile`.
 
 Si no activas un perfil, no arranca ningún servicio.
-
-```bash
-docker compose -f docker/docker-compose.yml --profile da3-ros2-wrapper up -d
-docker exec -it da3-ros2-wrapper bash
-docker compose -f docker/docker-compose.yml --profile da3-ros2-wrapper down
-```
 
 ## Docs
 
