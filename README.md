@@ -2,14 +2,12 @@
 
 Imágenes Docker modulares basadas en `osrf/ros:humble-desktop-full`. Cada imagen hereda de la anterior y añade solo lo que necesita, compartiendo capas para ahorrar disco.
 
-> Nota: Tener en cuenta .dockerignore en carpeta Cirtesu/.dockerignore para evitar montar cosas innecesarias dentro del contenedor.
-
 ```
 osrf/ros:humble-desktop-full
   └── diegomarza/ros2-dev-base    ← dev tools, uv, sudo, colcon, gedit...
-        └── diegomarza/da3        ← torch + DA3 deps en venv /opt/venvs/da3
-              └── diegomarza/da3-ros2-wrapper ← overlay colcon del wrapper ROS 2 desde fork remoto
-        └── diegomarza/stonefish  ← deps/toolchain para compilar Stonefish + ROS 2 en stonefish_ws
+        └── diegomarza/da3        ← (pendiente revisar) torch + DA3 deps en venv /opt/venvs/da3
+              └── diegomarza/da3-ros2-wrapper ← (pendiente revisar) overlay colcon del wrapper ROS 2 desde fork remoto
+        └── diegomarza/stonefish  ← (pendiente revisar) deps/toolchain para compilar Stonefish + ROS 2 en stonefish_ws
         └── diegomarza/zed        ← (futuro)
 ```
 
@@ -146,6 +144,10 @@ El usuario dentro del container es `diego` con UID/GID 1000 (el default de Ubunt
 
 ## Python en DA3
 
-DA3 usa un venv en `/opt/venvs/da3` gestionado con `uv` y ya queda horneado en la imagen `diegomarza/da3:latest`. El `PATH` del contenedor deja `da3` y `python` apuntando a `/opt/venvs/da3/bin`, y `PYTHONPATH` expone solo las rutas Python necesarias de ROS 2 junto con el override local de `Depth-Anything-3` montado en `/home/diego/Cirtesu/Repositories/Depth-Anything-3/src`.
+DA3 usa un venv en `/opt/venvs/da3` gestionado con `uv` y ya queda horneado en la imagen `diegomarza/da3:latest`. El `PATH` del contenedor deja `da3` y `python` apuntando a `/opt/venvs/da3/bin`.
 
 Esto ya está verificado en runtime sobre el servicio `da3` recreado con Compose: `da3 --help`, `import rclpy`, carga de `DA3-SMALL` en GPU e inferencia simple. No se instala nada en el Python del sistema.
+
+La copia usada por el editable install vive en `/opt/depth-anything-3`. Esto
+evita que el bind mount del workspace tape el paquete cuando una máquina usa
+`Repositories/Depth-Anything-3` y otra usa `src/Depth-Anything-3`.
