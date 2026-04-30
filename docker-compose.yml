@@ -4,11 +4,12 @@
 # Profiles:
 #   docker compose --profile ros2-dev-profile up -d  # ROS2 dev only
 #   docker compose --profile ros2-da3-dev-profile up -d  # ROS2 + DA3 dev
+#   docker compose --profile ros2-da3-zed-dev-profile up -d  # ROS2 + DA3 + ZED SDK
 #   docker compose build ros2-dev                    # Build ROS2 dev directly
 #   docker compose run --rm ros2-dev bash            # Enter ROS2 dev container
 #
 # All services:
-#   - Run as your host user (UID/GID match → no permission issues)
+#   - ROS2/DA3 services run as your host user.
 #   - Full GPU passthrough + NVIDIA OpenGL
 #   - Host network for ROS2 DDS discovery
 #   - X11 display forwarding for GUIs (rviz2, rqt, etc.)
@@ -21,13 +22,21 @@ x-common-env: &common-env
   XAUTHORITY: /tmp/.Xauthority
   __GLX_VENDOR_LIBRARY_NAME: nvidia
   __NV_PRIME_RENDER_OFFLOAD: 1
+  NVIDIA_DRIVER_CAPABILITIES: compute,utility,graphics,video,display
 
 # VOLUMES (SHARED DIRECTORIES)
 x-common-volumes: &common-volumes
   - ${MAIN_MOUNT_VOLUME}:${CONTAINER_WORKSPACE}
   - /tmp/.X11-unix:/tmp/.X11-unix:rw
-  - ${HOME}/.Xauthority:/tmp/.Xauthority:ro
+  - ${HOST_XAUTHORITY}:/tmp/.Xauthority:ro
   - /dev:/dev
+  - /run/udev:/run/udev:ro
+  - /dev/shm:/dev/shm
+
+x-zed-volumes: &zed-volumes
+  - ${ZED_DATA_VOLUME}/settings:/usr/local/zed/settings
+  - ${ZED_DATA_VOLUME}/resources:/usr/local/zed/resources
+  - ${ZED_DATA_VOLUME}/logs:/usr/local/zed/logs
 
 # BUILD ARGS (USED IN DOCKERFILE)
 x-common-build-args: &common-build-args
@@ -42,13 +51,14 @@ x-common-service: &common-service
   network_mode: host
   ipc: host
   privileged: true
+  gpus: all
   deploy:
     resources:
       reservations:
         devices:
           - driver: nvidia
             count: all
-            capabilities: [gpu, compute, utility, graphics, display]
+            capabilities: [gpu, compute, utility, graphics, video, display]
   stdin_open: true
   tty: true
   working_dir: ${CONTAINER_WORKSPACE}
@@ -81,6 +91,24 @@ services:
       args: *common-build-args
     container_name: ros2-da3-dev
     profiles: ["ros2-da3-dev-profile"]
+    <<: *common-service
+
+  # ── ROS2 + Depth Anything 3 + ZED SDK development ─────────────────────────
+  ros2-da3-zed-dev:
+    image: diegomarza/ros2-da3-zed-dev:latest
+    build:
+      context: ./ros2-da3-zed-dev
+      dockerfile: Dockerfile
+      args:
+        <<: *common-build-args
+        ROS_DISTRO: humble
+        CUDA_TOOLKIT_PKG: ${CUDA_TOOLKIT_PKG}
+        ZED_SDK_VERSION: ${ZED_SDK_VERSION}
+        ZED_CUDA_MAJOR: ${ZED_CUDA_MAJOR}
+        ZED_UBUNTU_MAJOR: ${ZED_UBUNTU_MAJOR}
+        ZED_ROS2_WRAPPER_REF: ${ZED_ROS2_WRAPPER_REF}
+    container_name: ros2-da3-zed-dev
+    profiles: ["ros2-da3-zed-dev-profile"]
     <<: *common-service
 
   # ── Stonefish simulation (disabled for now) ────────────────────────────────

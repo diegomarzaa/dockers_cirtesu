@@ -53,11 +53,13 @@ RUN set -eux; \
         pyyaml \
         rich \
         scipy \
-        scikit-learn
+        scikit-learn; \
+    find /usr/local/lib/python3.10/dist-packages -maxdepth 1 -mindepth 1 -type d -exec chmod -R a+rX {} +
 
 # Bring local DA3 repository from additional_contexts and install editable.
 COPY --from=depth_anything_3 --chown=${USERNAME}:${USERNAME} . /opt/depth-anything-3
-RUN uv pip install --system --no-deps -e /opt/depth-anything-3
+RUN uv pip install --system --no-deps -e /opt/depth-anything-3 && \
+    find /usr/local/lib/python3.10/dist-packages -maxdepth 1 -mindepth 1 -type d -exec chmod -R a+rX {} +
 
 # ── Back to developer user ────────────────────────────────────────────────────
 USER ${USERNAME}
@@ -72,5 +74,5 @@ RUN bash -lc 'set -eo pipefail; \
     python3 -c "from depth_anything_3.api import DepthAnything3; print(DepthAnything3.__name__)"; \
     python3 -c "import faiss, pypose, numba, pandas; print(\"streaming_deps_ok\")"'
 
-WORKDIR /home/${USERNAME}/DockerWorkspace
+WORKDIR /home/${USERNAME}/depth_anything_ws
 CMD ["/bin/bash"]

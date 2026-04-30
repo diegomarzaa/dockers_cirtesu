@@ -7,7 +7,7 @@ osrf/ros:humble-desktop-full
   └── diegomarza/ros2-dev-base    ← dev tools, uv, sudo, colcon, gedit...
         └── diegomarza/ros2-da3-dev ← ROS2 + DA3 + DA3-Streaming en el Python del sistema
         └── diegomarza/stonefish  ← (pendiente revisar) deps/toolchain para compilar Stonefish + ROS 2 en stonefish_ws
-        └── diegomarza/zed        ← (futuro)
+        └── diegomarza/ros2-da3-zed-dev ← ROS2 + DA3 + ZED SDK
 ```
 
 ## Prerequisitos
@@ -45,7 +45,7 @@ Edita como mínimo estas variables:
 
 ```env
 MAIN_MOUNT_VOLUME=/home/usuario/depth_anything_ws
-CONTAINER_WORKSPACE=/home/usuario/DockerWorkspace
+CONTAINER_WORKSPACE=/home/usuario/depth_anything_ws
 CONTAINER_USER=usuario
 ```
 
@@ -116,6 +116,7 @@ Perfiles principales:
 
 - `ros2-dev-profile`: ROS2 base de desarrollo.
 - `ros2-da3-dev-profile`: ROS2 + DA3 + DA3-Streaming.
+- `ros2-da3-zed-dev-profile`: ROS2 + DA3 + ZED SDK.
 
 Si no activas un perfil, no arranca ningún servicio.
 
@@ -149,7 +150,8 @@ docker pull diegomarza/ros2-da3-dev:latest
 
 ## Permisos
 
-El usuario dentro del contenedor se configura con `CONTAINER_USER`, `CONTAINER_UID` y `CONTAINER_GID` en `.env`. `sudo` está disponible sin contraseña.
+Los servicios normales de ROS2/DA3 usan `CONTAINER_USER`, `CONTAINER_UID` y `CONTAINER_GID` en `.env`.
+El servicio `ros2-da3-zed-dev` sigue usando el usuario del host; si la ZED no abre, el problema suele estar en el acceso efectivo a `/dev/bus/usb` dentro del contenedor o en el propio enlace USB.
 
 ## Python en DA3
 
@@ -158,3 +160,66 @@ El usuario dentro del contenedor se configura con `CONTAINER_USER`, `CONTAINER_U
 La copia usada por el editable install vive en `/opt/depth-anything-3`. Esto
 evita que el bind mount del workspace tape el paquete cuando una máquina usa
 `Repositories/Depth-Anything-3` y otra usa `src/Depth-Anything-3`.
+
+## ROS2 + DA3 + ZED
+
+Para tener DA3 y ZED SDK en el mismo contenedor:
+
+```bash
+cd /home/usuario/depth_anything_ws/src/dockers_cirtesu
+docker compose build ros2-da3-zed-dev
+docker compose --profile ros2-da3-zed-dev-profile up -d
+docker exec -it ros2-da3-zed-dev bash
+```
+
+El instalador se descarga desde el patrón oficial de Stereolabs para la rama
+5.2:
+
+```text
+https://download.stereolabs.com/zedsdk/5.2/cu12/ubuntu22
+```
+
+Antes de instalar el ZED SDK, la imagen añade CUDA Toolkit 12.4 desde el repo
+de NVIDIA apt y luego instala el ZED SDK con `skip_cuda` para no duplicar la
+instalación de CUDA.
+
+Si Stereolabs cambia o redirige la URL, el Dockerfile valida tamaño/tipo del
+fichero antes de ejecutarlo para evitar correr una página HTML como instalador.
+
+El servicio monta `/dev`, `/run/udev`, `/dev/shm` y los directorios persistentes
+de ZED:
+
+```text
+${ZED_DATA_VOLUME}/settings  -> /usr/local/zed/settings
+${ZED_DATA_VOLUME}/resources -> /usr/local/zed/resources
+${ZED_DATA_VOLUME}/logs      -> /usr/local/zed/logs
+```
+
+Antes de lanzar visores con OpenCV/X11:
+
+```bash
+xhost +si:localuser:$(id -un)
+```
+
+Ese `xhost` autoriza al usuario que va a abrir ventanas X11 desde el host.
+
+Si ya tienes el contenedor creado, las comprobaciones mínimas dentro del Docker son estas:
+
+```bash
+id
+lsusb
+ls -l /dev/bus/usb/*/*
+ros2 topic list | grep -E 'left|right|camera_info|depth'
+```
+
+Y para arrancar la ZED desde dentro:
+
+```bash
+ros2 launch zed_wrapper zed_camera.launch.py \
+  camera_model:=zed \
+  param_overrides:="video.publish_left_right:=true"
+```
+
+Si la cámara no abre, el siguiente paso útil es mirar si el nodo USB tiene permisos
+de escritura para tu usuario y si el dispositivo aparece y desaparece en `lsusb`
+mientras enchufas y desenchufas la ZED.
